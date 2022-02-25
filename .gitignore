@@ -3,5 +3,5 @@ cloned
 include
 lib
 Scripts
-pyenv.cfg
+pyvenv.cfg
 chashmyar
