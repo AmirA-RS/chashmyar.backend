@@ -3,6 +3,7 @@ from pydantic import EmailStr
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from router import oaut
+import os
 from model import user as UserModel
 import shutil
 from schema import user as UserSchema
@@ -81,19 +82,22 @@ def update(*, db: Session = Depends(get_db), get_current_user: token.token_data 
 
 
 @router.put('/me', response_model=UserSchema.user_show, summary='Current User Update')
-def update(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user),  information: UserSchema.update= Body(...), avatar: UploadFile = File(''), moreInfo: list = Query([], description='More Information About User')):
+def update(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user),  information: UserSchema.update= Body(...), avatar: UploadFile = File(''), moreInfo: list = Query(None, description='More Information About User')):
         email = get_current_user.email
+        print(email)
         information = {a: b for a, b in information.dict().items() if b is not None}
         if moreInfo:
             moreInfo = json.dumps(moreInfo).encode('utf8')
             db.query(UserModel.user).filter(UserModel.user.email == email).update(
                 {'moreInfo': moreInfo}, synchronize_session=False)
-        db.query(UserModel.user).filter(UserModel.user.email == email).update(
-            information.dict(), synchronize_session=False)
+        if information:
+            db.query(UserModel.user).filter(UserModel.user.email == email).update(
+                information, synchronize_session=False)
         user = db.query(UserModel.user).filter(
             UserModel.user.email == email).first()
         if avatar:
-            directory = f"D:/chashmyar/avatar_of_users/{user.national_number}/{user.national_number}-avatar.png"
+            directory = f"D:/chashmyar/avatar_of_users/{user.email}/{user.email}-avatar.png"
+            os.mkdir(f"D:/chashmyar/avatar_of_users/{user.email}")
             with open(directory, "wb") as buffer:
                 shutil.copyfileobj(avatar.file, buffer)
                 db.query(UserModel.user).filter(UserModel.user.email == email).update(
