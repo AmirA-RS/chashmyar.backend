@@ -1,12 +1,8 @@
-from distutils.log import info
-from tkinter.messagebox import NO
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request, UploadFile, File
-from itsdangerous import json
 from pydantic import EmailStr
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from router import oaut
-import datetime
 from model import user as UserModel
 import shutil
 from schema import user as UserSchema
@@ -17,8 +13,7 @@ from Db.Db import get_db
 from typing import List
 import json
 from datetime import timedelta
-secretFile = open('config/secret.json', 'rt')
-file = json.loads(secretFile.read())
+file = json.load(open('config/secret.json', 'rt', encoding='utf8'))
 router = APIRouter(tags=['User'], prefix='/user')
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -27,7 +22,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def signin(*, db: Session = Depends(get_db), information: UserSchema.user_signin = Body(...), setAdminTrue: bool = Query(False)):
     try:
         password = pwd_context.hash(information.password)
-        user = UserModel.user(name=information.name, password=password, username = information.username, admin = setAdminTrue)
+        user = UserModel.user(name=information.name, password=password, email = information.email, admin = setAdminTrue)
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -49,11 +44,9 @@ def getall(*, db: Session = Depends(get_db), get_current_user: token.token_data 
 
 
 @router.get('/one', response_model=UserSchema.user_show, summary='One User Informations')
-def update(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user), id: str = Query(None), username: str = Query(None), national_number: str = Query(None), email: EmailStr = Query(None)):
+def update(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user), id: str = Query(None), national_number: str = Query(None), email: EmailStr = Query(None)):
     try:
-        information = ["id", "username", "national_number", "email"]
-        print("...........")
-        print(locals()["username"])
+        information = ["id", "national_number", "email"]
         if get_current_user.admin:
             for inf in information:
                 if locals()[inf] is not None:
@@ -61,9 +54,6 @@ def update(*, db: Session = Depends(get_db), get_current_user: token.token_data 
                     if inf == "id":
                         user = db.query(UserModel.user).filter(
                             UserModel.user.id == locals()[inf]).first()
-                    elif inf == "username":
-                        user = db.query(UserModel.user).filter(
-                            UserModel.user.username == locals()[inf]).first()
                     elif inf == "national_number":
                         user = db.query(UserModel.user).filter(
                             UserModel.user.national_number == locals()[inf]).first()
@@ -84,7 +74,7 @@ def update(*, db: Session = Depends(get_db), get_current_user: token.token_data 
 def update(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user)):
     try:
         user = db.query(UserModel.user).filter(
-            UserModel.user.username == get_current_user.username).first()
+            UserModel.user.email == get_current_user.email).first()
         return user
     except:
         raise HTTPException(status_code=400)
@@ -92,19 +82,23 @@ def update(*, db: Session = Depends(get_db), get_current_user: token.token_data 
 
 @router.put('/me', response_model=UserSchema.user_show, summary='Current User Update')
 def update(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user),  information: UserSchema.update= Body(...), avatar: UploadFile, moreInfo: list = Query([], description='More Information About User')):
-        username = get_current_user.username
+        email = get_current_user.email
+        information = {a: b for a, b in information.dict().items() if b is not None}
         if moreInfo:
             moreInfo = json.dumps(moreInfo).encode('utf8')
-            db.query(UserModel.user).filter(UserModel.user.username == username).update(
+            db.query(UserModel.user).filter(UserModel.user.email == email).update(
                 {'moreInfo': moreInfo}, synchronize_session=False)
-        db.query(UserModel.user).filter(UserModel.user.username == username).update(
+        db.query(UserModel.user).filter(UserModel.user.email == email).update(
             information.dict(), synchronize_session=False)
-        db.commit()
         user = db.query(UserModel.user).filter(
-            UserModel.user.username == username).first()
+            UserModel.user.email == email).first()
         if avatar:
-            with open(f"{user.username}.png", "wb") as buffer:
+            directory = f"D:/chashmyar/avatar_of_users/{user.national_number}/{user.national_number}-avatar.png"
+            with open(directory, "wb") as buffer:
                 shutil.copyfileobj(avatar.file, buffer)
+                db.query(UserModel.user).filter(UserModel.user.email == email).update(
+                {'avatar': directory}, synchronize_session=False)
+        db.commit()
         return user
 
 
@@ -112,15 +106,12 @@ def update(*, db: Session = Depends(get_db), get_current_user: token.token_data 
 def delete(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user), id: str = Query(None), username: str = Query(None), national_number: str = Query(None), email: EmailStr = Query(None)):
     try:
         if get_current_user.admin:
-            information = ["id", "username", "national_number", "email"]
+            information = ["id", "national_number", "email"]
             for inf in information:
                 if locals()[inf] is not None:
                     if inf == "id":
                         user = db.query(UserModel.user).filter(
                             UserModel.user.id == locals()[inf]).delete(synchronize_session=False)
-                    elif inf == "username":
-                        user = db.query(UserModel.user).filter(
-                            UserModel.user.username == locals()[inf]).delete(synchronize_session=False)
                     elif inf == "national_number":
                         user = db.query(UserModel.user).filter(
                             UserModel.user.national_number == locals()[inf]).delete(synchronize_session=False)
@@ -141,20 +132,18 @@ def delete(*, db: Session = Depends(get_db), get_current_user: token.token_data 
 
 @router.post('/login', response_model=token.token_show, summary='User Login')
 def loggin(db: Session = Depends(get_db), information: oaut.OAuth2PasswordRequestForm = Depends()):
-    print('aas')
-    username = information.username
+    email = information.username
     password = information.password
     user = db.query(UserModel.user).filter(
-        UserModel.user.username == username).first()
+        UserModel.user.email == email).first()
     if not user:
         raise HTTPException(detail='not found', status_code=404)
     if not pwd_context.verify(password, user.password):
-        print(1)
         raise HTTPException(detail='wrong password', status_code=400)
     access_token_expires = timedelta(
         minutes=file["ACCESS_TOKEN_EXPIRE_MINUTES"])
     access_token = aut.create_access_token(
-        data={"sub": f'{user.username}, admincheck:{user.admin}'}, expires_delta=access_token_expires
+        data={"sub": f'{user.email}, admincheck:{user.admin}'}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -162,8 +151,8 @@ def loggin(db: Session = Depends(get_db), information: oaut.OAuth2PasswordReques
 @router.delete('/logout/all', summary='User Delete Account')
 def logout(db: Session = Depends(get_db),  get_current_user: token.token_data = Depends(oaut.get_current_user)):
     try:
-        db.query(UserModel.user).filter(UserModel.user.username ==
-                                        get_current_user.username).delete(synchronize_session=False)
+        db.query(UserModel.user).filter(UserModel.user.email ==
+                                        get_current_user.email).delete(synchronize_session=False)
         db.commit()
         return 'account deleted'
     except:

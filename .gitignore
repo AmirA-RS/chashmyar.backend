@@ -4,4 +4,4 @@ include
 lib
 Scripts
 pyvenv.cfg
-chashmyar
+chashmyar.db

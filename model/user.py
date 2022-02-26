@@ -12,7 +12,6 @@ class user(Base):
     id= Column(Integer, primary_key=True, index=True)
     password = Column(String)
     name = Column(String)
-    username = Column(String, unique=True)
     national_number = Column(String, unique=True)
     email = Column(String, unique=True)
     age = Column(Integer)
@@ -22,6 +21,7 @@ class user(Base):
     illness = Column(Boolean)
     avatar = Column(LargeBinary)
     moreInfo = Column(String)
+    avatar = Column(String)
     admin = Column(Boolean)
 
 

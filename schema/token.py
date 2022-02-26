@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailError, EmailStr, Field
 class token_data(BaseModel):
-    username: str = Field(...)
+    email: EmailStr = Field(...)
     admin: bool = Field(...)
 
 class token_show(BaseModel):

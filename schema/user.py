@@ -8,13 +8,12 @@ import json
 
 class user_signin(BaseModel):
     name: str = Field(...)
-    username: str = Field(...)
+    email: EmailStr = Field(...)
     password: str = Field(...)
 
 
 class user_show(BaseModel):
     name: str = Field(...)
-    username : str = Field(None)
     national_number: str = Field(None, max_length=10, min_length=10, description='without dash or hyphen')
     email : EmailStr = Field(None)
     age: int = Field(None, min=1)
@@ -23,11 +22,12 @@ class user_show(BaseModel):
     gender: str = Field(None)#Enum[None, 'male', 'female']
     illness: bool = Field(None, description='experience of eye illness')
     moreInfo: str = Field(None)
+    avatar: str = Field(None)
+    admin: bool = Field(None)
     class Config():
         orm_mode = True
 
 class admin_show(user_show):
-    admin: bool = Field(...)
     class Config():
         orm_mode = True
 
