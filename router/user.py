@@ -81,7 +81,7 @@ def update(*, db: Session = Depends(get_db), get_current_user: token.token_data 
 
 
 @router.put('/me', response_model=UserSchema.user_show, summary='Current User Update')
-def update(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user),  information: UserSchema.update= Body(...), avatar: UploadFile, moreInfo: list = Query([], description='More Information About User')):
+def update(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user),  information: UserSchema.update= Body(...), avatar: UploadFile = File(''), moreInfo: list = Query([], description='More Information About User')):
         email = get_current_user.email
         information = {a: b for a, b in information.dict().items() if b is not None}
         if moreInfo:
@@ -103,7 +103,7 @@ def update(*, db: Session = Depends(get_db), get_current_user: token.token_data 
 
 
 @router.delete('/', summary='User Delete')
-def delete(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user), id: str = Query(None), username: str = Query(None), national_number: str = Query(None), email: EmailStr = Query(None)):
+def delete(*, db: Session = Depends(get_db), get_current_user: token.token_data = Depends(oaut.get_current_user), id: str = Query(None), national_number: str = Query(None), email: EmailStr = Query(None)):
     try:
         if get_current_user.admin:
             information = ["id", "national_number", "email"]
